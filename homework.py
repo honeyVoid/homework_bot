@@ -12,6 +12,7 @@ from http import HTTPStatus
 
 load_dotenv()
 
+
 logging.basicConfig(
     level=logging.INFO,
     filename='homework.log',
@@ -21,7 +22,7 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
-heandler = RotatingFileHandler('homework.log', maxBytes=10000, backupCount=3)
+heandler = RotatingFileHandler('homework.log', maxBytes=5000000, backupCount=3)
 logger.addHandler(heandler)
 
 PRACTICUM_TOKEN = os.getenv('PRACTICUM_TOKEN')
@@ -40,12 +41,12 @@ HOMEWORK_VERDICTS = {
 }
 
 
-def check_tokens():
+def check_tokens() -> bool:
     """Проверка всех токенов."""
     return all([PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID])
 
 
-def send_message(bot, message):
+def send_message(bot: telegram.Bot, message: str) -> None:
     """Оповещает об изменение статуса проверки ДЗ."""
     try:
         logger.debug('сообщение отправлено')
@@ -55,7 +56,7 @@ def send_message(bot, message):
         raise AssertionError(error)
 
 
-def get_api_answer(timestamp):
+def get_api_answer(timestamp: int) -> dict:
     """Получение ответа от API яндекс.практикум."""
     try:
         response = requests.get(
@@ -72,12 +73,18 @@ def get_api_answer(timestamp):
         raise exception.UnavailableEndpointException(
             'Указ не корректный URL.'
         )
-    return response.json()
+    try:
+        return response.json()
+    except Exception as error:
+        logger.error(error)
+        raise exception.UnavailableEndpointException(
+            'Ответ содержит некорректный тип данных.'
+        )
 
 
-def check_response(response):
+def check_response(response: dict) -> list:
     """Проверка типов данных."""
-    if type(response) != dict:
+    if not isinstance(response, dict):
         logger.error(
             'Неверный тип данных от API или некорректное форматирование.'
             f'Полученный тип данных {type(response)}'
@@ -89,15 +96,17 @@ def check_response(response):
         logger.error('Отсутствует главный ключ!')
         raise KeyError('Отсутствует главный ключ!')
     key_list = response['homeworks']
-    if type(key_list) != list:
-        logger.error('Получкнные данные не являются списком.')
+    if not isinstance(key_list, list):
+        logger.error('Полученные данные не являются списком.')
         raise TypeError(
             f'Получен не ожидаемый тип данных: {type(response)}'
         )
+    if len(key_list) == 0:
+        logger.info('Обновлений нет.')
     return key_list
 
 
-def parse_status(homework):
+def parse_status(homework: list) -> str:
     """Проверка статуса домашней работы."""
     keys = ('homework_name', 'status')
     for key in keys:
@@ -109,12 +118,11 @@ def parse_status(homework):
     if status in HOMEWORK_VERDICTS:
         verdict = HOMEWORK_VERDICTS[status]
         return f'Изменился статус проверки работы "{homework_name}". {verdict}'
-    else:
-        logger.error(f'передан неверный ключ {status}.')
-        raise KeyError('Передан неверный ключ для значеи статуса.')
+    logger.error(f'передан неверный ключ {status}.')
+    raise KeyError('Передан неверный ключ для значеи статуса.')
 
 
-def main():
+def main() -> None:
     """Основная логика работы бота."""
     if not check_tokens():
         logger.critical('Отсутствует необходимый(e) токен(ы)!')
@@ -130,15 +138,11 @@ def main():
         try:
             response = get_api_answer(timestamp)
             list_response = check_response(response)
-            if len(list_response) == 0:
-                logger.info('Обновлений нет.')
-            else:
-                hw_status = parse_status(list_response[0])
-                if status == hw_status:
-                    logger.info(hw_status)
-                else:
-                    status = hw_status
-                    send_message(bot, hw_status)
+            hw_status = parse_status(list_response[0])
+            if status == hw_status:
+                logger.info(hw_status)
+            status = hw_status
+            send_message(bot, hw_status)
         except Exception as error:
             message = f'Сбой в работе программы: {error}'
             logger.error(message)
