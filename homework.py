@@ -13,17 +13,26 @@ from http import HTTPStatus
 load_dotenv()
 
 
-logging.basicConfig(
-    level=logging.INFO,
-    filename='homework.log',
-    format='%(asctime)s, %(levelname)s, %(message)s, %(name)s',
-    encoding='utf-8'
-)
+def init_logger():
+    """Создания конифигурации логгера."""
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.DEBUG)
+    formatter = logging.Formatter(
+        '%(asctime)s, %(levelname)s, %(message)s, %(name)s'
+    )
+    file_handler = RotatingFileHandler(
+        'homework.log',
+        maxBytes=5000000,
+        backupCount=3,
+        encoding='utf-8'
+    )
+    file_handler.setLevel(logging.INFO)
+    file_handler.setFormatter(formatter)
+    logger.addHandler(file_handler)
+    return logger
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
-heandler = RotatingFileHandler('homework.log', maxBytes=5000000, backupCount=3)
-logger.addHandler(heandler)
+
+logger = init_logger()
 
 PRACTICUM_TOKEN = os.getenv('PRACTICUM_TOKEN')
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
