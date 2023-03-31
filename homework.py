@@ -13,7 +13,7 @@ from http import HTTPStatus
 load_dotenv()
 
 
-def init_logger():
+def init_logger() -> logging.Logger:
     """Создания конифигурации логгера."""
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.DEBUG)
@@ -58,8 +58,8 @@ def check_tokens() -> bool:
 def send_message(bot: telegram.Bot, message: str) -> None:
     """Оповещает об изменение статуса проверки ДЗ."""
     try:
+        bot.send_message(TELEGRAM_CHAT_ID, message)
         logger.debug('сообщение отправлено')
-        return bot.send_message(TELEGRAM_CHAT_ID, message)
     except Exception as error:
         logger.error(error)
         raise AssertionError(error)
@@ -112,6 +112,7 @@ def check_response(response: dict) -> list:
         )
     if len(key_list) == 0:
         logger.info('Обновлений нет.')
+        raise IndexError('отсутствует индекс')
     return key_list
 
 
@@ -142,7 +143,6 @@ def main() -> None:
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
     timestamp = int(time.time())
     status = ''
-
     while True:
         try:
             response = get_api_answer(timestamp)
